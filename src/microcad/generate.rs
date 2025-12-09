@@ -5,7 +5,7 @@ use rand::prelude::*;
 
 use crate::microcad::PRELUDE;
 
-pub fn ucad(tokens: &[u8], params: &[i8]) -> anyhow::Result<String> {
+pub fn ucad(tokens: &[u8], params: &[f32]) -> anyhow::Result<String> {
     // assert_eq!(token.len(), params.len());
     if tokens.len() * 10 != params.len() {
         Err(anyhow!(format!(
@@ -30,7 +30,7 @@ pub fn ucad(tokens: &[u8], params: &[i8]) -> anyhow::Result<String> {
                 .take(10)
                 .map(char::from)
                 .collect();
-            objs.push((name.clone(), *sig <= 1));
+            objs.push((name.clone(), *sig <= 1.0));
 
             match p {
                 0 => {
