@@ -21,12 +21,15 @@
                             just
                             maturin
 
-                            nasm
-
+                            # stuff
                             pkg-config
                             ninja
                             cmake
                             stdenv.cc.cc
+
+                            # rerun
+                            nasm
+                            wayland
 
                             # microcad-bevy
                             vulkan-loader
