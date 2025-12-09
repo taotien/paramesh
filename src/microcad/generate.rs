@@ -5,7 +5,7 @@ use rand::prelude::*;
 
 use crate::microcad::PRELUDE;
 
-pub fn from(tokens: Vec<u8>, params: Vec<i8>) -> anyhow::Result<String> {
+pub fn ucad(tokens: &[u8], params: &[i8]) -> anyhow::Result<String> {
     // assert_eq!(token.len(), params.len());
     if tokens.len() * 10 != params.len() {
         Err(anyhow!(format!(

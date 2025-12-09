@@ -12,7 +12,15 @@ fn visualize(kinds: Vec<u8>, params: Vec<f32>) -> PyResult<()> {
     let rec = rerun::RecordingStreamBuilder::new("microcad synthesizer")
         .spawn()
         .unwrap();
-    let ucad = generate::from(kinds, params.into_iter().map(|i| i as i8).collect()).unwrap();
+    let ucad = generate::ucad(
+        &kinds,
+        params
+            .into_iter()
+            .map(|i| i as i8)
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+    .unwrap();
     let mut tgt = Microcad::new();
     tgt.set_root(&ucad);
     let mesh: Vec<Vec3> = tgt

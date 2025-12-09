@@ -10,34 +10,44 @@ use rand::{
 use reedline::{DefaultPrompt, Reedline, Signal};
 use rerun::{external::glam, RecordingStream};
 
-#[derive(Parser)]
-struct Args {
-    // input_path: PathBuf,
-    // primitives: Vec<String>,
-    // operations: Vec<String>,
+enum E {
+    Filled(u8, [i8; 10]),
+    Hole,
+}
+
+// fn rerun()
+fn fill(sketch: &[E], rng: ThreadRng) -> Vec<Object> {
+    todo!()
+}
+
+type Object = (u8, [i8; 10]);
+
+fn generate_random(rng: &mut ThreadRng) -> Object {
+    let kind = rng.random_range(0..=2);
+    let params = [
+        (0..9).map(|_| rng.random_range(1i8..=20i8)).collect(),
+        vec![rng.random_range(0..=1i8)],
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .try_into()
+    .unwrap();
+
+    (kind, params)
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
     let rec = rerun::RecordingStreamBuilder::new("microcad synthesizer").spawn()?;
 
     let mut rng = rand::rng();
 
     let count = 5;
     let mut target = Microcad::new();
-    let tgt_ucad = generate::from(
-        (0..count).map(|_| rng.random_range(0..=2)).collect(),
-        (0..count)
-            .flat_map(|_| {
-                [
-                    (0..9).map(|_| rng.random_range(1i8..=20i8)).collect(),
-                    vec![rng.random_range(0..=1i8)],
-                ]
-                .into_iter()
-                .flatten()
-            })
-            .collect(),
-    )?;
+    let r = generate_random(&mut rng);
+    let kinds = vec![r.0];
+    let params = r.1.into();
+    let tgt_ucad = generate::ucad(kinds, params)?;
     println!("{tgt_ucad}");
     target.set_root(&tgt_ucad);
     let triags = target.render_mesh()?;
@@ -55,86 +65,88 @@ fn main() -> anyhow::Result<()> {
         right_prompt: reedline::DefaultPromptSegment::Empty,
     };
 
-    let mut whole: Vec<(u8, [i8; 10])> = Vec::new();
-    let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
-    for _ in 0..100 {
-        let kind = rng.random_range(0..=2u8);
-        let mut params: [i8; 10] = [0; 10];
-        for p in params.iter_mut().take(9) {
-            *p = rng.random_range(1..=20);
-        }
-        params[9] = rng.random_range(0..=1);
+    Ok(())
 
-        let mut trial = whole.clone();
-        trial.push((kind, params));
-        let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
-        let paramss = paramss.into_iter().flatten().collect();
-        let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
-        candidates.push((kind, params, score));
-    }
-    candidates.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
-    let (a, b, _) = candidates.first().unwrap();
-    whole.push((*a, *b));
-    loop {
-        let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
+    // let mut whole: Vec<(u8, [i8; 10])> = Vec::new();
+    // let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
+    // for _ in 0..100 {
+    //     let kind = rng.random_range(0..=2u8);
+    //     let mut params: [i8; 10] = [0; 10];
+    //     for p in params.iter_mut().take(9) {
+    //         *p = rng.random_range(1..=20);
+    //     }
+    //     params[9] = rng.random_range(0..=1);
 
-        for _ in 0..500 {
-            let kind = rng.random_range(0..=2u8);
-            let mut params: [i8; 10] = [0; 10];
-            for p in params.iter_mut().take(9) {
-                *p = rng.random_range(1..=20);
-            }
-            params[9] = rng.random_range(0..=1);
+    //     let mut trial = whole.clone();
+    //     trial.push((kind, params));
+    //     let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
+    //     let paramss = paramss.into_iter().flatten().collect();
+    //     let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
+    //     candidates.push((kind, params, score));
+    // }
+    // candidates.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
+    // let (a, b, _) = candidates.first().unwrap();
+    // whole.push((*a, *b));
+    // loop {
+    //     let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
 
-            let mut trial = whole.clone();
-            trial.push((kind, params));
-            let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
-            let paramss = paramss.into_iter().flatten().collect();
-            let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
-            candidates.push((kind, params, score));
-        }
+    //     for _ in 0..500 {
+    //         let kind = rng.random_range(0..=2u8);
+    //         let mut params: [i8; 10] = [0; 10];
+    //         for p in params.iter_mut().take(9) {
+    //             *p = rng.random_range(1..=20);
+    //         }
+    //         params[9] = rng.random_range(0..=1);
 
-        let (k, p): (Vec<u8>, Vec<[i8; 10]>) = whole.clone().into_iter().unzip();
-        let p = p.into_iter().flatten().collect();
-        let curr_score = score_k_p(&rec, &target_mesh, k, p)?;
-        println!("{curr_score}");
-        let weights: Vec<f32> = candidates
-            .iter()
-            .map(|(_, _, s)| (curr_score - s).max(0.01))
-            .collect();
+    //         let mut trial = whole.clone();
+    //         trial.push((kind, params));
+    //         let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
+    //         let paramss = paramss.into_iter().flatten().collect();
+    //         let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
+    //         candidates.push((kind, params, score));
+    //     }
 
-        let dist = WeightedIndex::new(&weights).unwrap();
-        let idx = dist.sample(&mut rng);
+    //     let (k, p): (Vec<u8>, Vec<[i8; 10]>) = whole.clone().into_iter().unzip();
+    //     let p = p.into_iter().flatten().collect();
+    //     let curr_score = score_k_p(&rec, &target_mesh, k, p)?;
+    //     println!("{curr_score}");
+    //     let weights: Vec<f32> = candidates
+    //         .iter()
+    //         .map(|(_, _, s)| (curr_score - s).max(0.01))
+    //         .collect();
 
-        let (kind, params, schore) = &candidates[idx];
-        whole.push((*kind, *params));
+    //     let dist = WeightedIndex::new(&weights).unwrap();
+    //     let idx = dist.sample(&mut rng);
 
-        println!("whole: {whole:?}, diff: {schore}");
-    }
+    //     let (kind, params, schore) = &candidates[idx];
+    //     whole.push((*kind, *params));
 
-    // Ok(())
+    //     println!("whole: {whole:?}, diff: {schore}");
+    // }
+
+    // // Ok(())
 }
 
-fn score_k_p(
-    rec: &RecordingStream,
-    target_mesh: &Vec<Vec3>,
-    kinds: Vec<u8>,
-    params: Vec<i8>,
-) -> Result<f32, anyhow::Error> {
-    let ucad = generate::from(kinds.clone(), params.clone())?;
-    let mut tgt = Microcad::new();
-    tgt.set_root(&ucad);
-    let mesh: Vec<Vec3> = tgt
-        .render_mesh()?
-        .positions
-        .iter()
-        .map(|v| glam::vec3(v.x, v.y, v.z))
-        .collect();
-    let points = rerun::Points3D::new(mesh.clone());
-    rec.log("mesh", &points.with_radii([0.1]))?;
-    let score = chamfer_distance(target_mesh, &mesh);
-    Ok(score)
-}
+// fn score_k_p(
+//     rec: &RecordingStream,
+//     target_mesh: &Vec<Vec3>,
+//     kinds: Vec<u8>,
+//     params: Vec<i8>,
+// ) -> Result<f32, anyhow::Error> {
+//     let ucad = generate::from(kinds.clone(), params.clone())?;
+//     let mut tgt = Microcad::new();
+//     tgt.set_root(&ucad);
+//     let mesh: Vec<Vec3> = tgt
+//         .render_mesh()?
+//         .positions
+//         .iter()
+//         .map(|v| glam::vec3(v.x, v.y, v.z))
+//         .collect();
+//     let points = rerun::Points3D::new(mesh.clone());
+//     rec.log("mesh", &points.with_radii([0.1]))?;
+//     let score = chamfer_distance(target_mesh, &mesh);
+//     Ok(score)
+// }
 
 // #[derive(Default)]
 // struct State {
@@ -142,7 +154,7 @@ fn score_k_p(
 //     dist: f32,
 // }
 
-pub fn chamfer_distance(a: &[Vec3], b: &[Vec3]) -> f32 {
+fn chamfer_distance(a: &[Vec3], b: &[Vec3]) -> f32 {
     fn nearest_sum(from: &[Vec3], to: &[Vec3]) -> f32 {
         let mut accum = 0.0;
         for p in from {
