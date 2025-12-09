@@ -19,6 +19,7 @@
                             meshlab
 
                             just
+                            maturin
 
                             nasm
 
