@@ -20,6 +20,7 @@
 
                             just
                             maturin
+                            python313
 
                             # stuff
                             pkg-config
