@@ -17,6 +17,7 @@ pub fn from(tokens: Vec<u8>, params: Vec<i8>) -> anyhow::Result<String> {
 
     let mut rng = rand::rngs::SmallRng::from_os_rng();
 
+    // println!("{tokens:?}, {params:?}");
     let mut objs = vec![];
     let mut ucad = vec![];
 
@@ -71,5 +72,7 @@ pub fn from(tokens: Vec<u8>, params: Vec<i8>) -> anyhow::Result<String> {
     }
     writeln!(ucad, ";")?;
 
-    Ok(String::from_utf8(ucad)?)
+    let var_name = String::from_utf8(ucad)?;
+    // println!("{var_name}");
+    Ok(var_name)
 }
