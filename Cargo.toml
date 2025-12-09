@@ -9,4 +9,11 @@ name = "paramesh"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-pyo3 = "0.25.0"
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
+itertools = "0.14.0"
+pyo3 = { version = "0.25.0", features = ["auto-initialize"] }
+rand = "0.9.2"
+rerun = { version = "0.27.3", features = ["nasm"] }
+serde = { version = "1.0.228", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
