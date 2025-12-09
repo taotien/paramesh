@@ -16,9 +16,9 @@ enum E {
 }
 
 // fn rerun()
-fn fill(sketch: &[E], rng: ThreadRng) -> Vec<Object> {
-    todo!()
-}
+// fn fill(sketch: &[E], rng: ThreadRng) -> Vec<Object> {
+//     todo!()
+// }
 
 type Object = (u8, [i8; 10]);
 
