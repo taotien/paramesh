@@ -1,7 +1,8 @@
-use std::{path::PathBuf, process::exit, thread::sleep, time::Duration};
+use std::{collections::BTreeMap, path::PathBuf, process::exit, thread::sleep, time::Duration};
 
 use clap::Parser;
 use glam::Vec3;
+use itertools::iproduct;
 use paramesh::{
     chamfer_distance, generate_random,
     microcad::{generate, Microcad},
@@ -52,9 +53,9 @@ fn main() -> anyhow::Result<()> {
     let mut built_params = vec![];
     let mut best = (0u8, [0.0; 10], 0.0);
     let mut next = None;
-    let mut size_range = (1f32..=20f32);
-    let mut tran_range = (1f32..=5f32);
-    let mut rota_range = (0f32..=360f32);
+    let mut size_range = 1u16..=20u16;
+    let mut tran_range = 1u16..=5u16;
+    let mut rota_range = 0u16..=360u16;
     loop {
         let input = line_editor.read_line(&prompt)?;
         match input {
@@ -94,9 +95,9 @@ fn main() -> anyhow::Result<()> {
                     }
                     (Some('a'), _) => {
                         next = None;
-                        size_range = (1f32..=20f32);
-                        tran_range = (1f32..=5f32);
-                        rota_range = (0f32..=360f32);
+                        size_range = 1u16..=20u16;
+                        tran_range = 1u16..=5u16;
+                        rota_range = 0u16..=360u16;
                     }
                     _ => {}
                 }
@@ -104,102 +105,48 @@ fn main() -> anyhow::Result<()> {
             Signal::CtrlC | Signal::CtrlD => exit(1),
         }
 
-        let mut candidates = vec![];
-        for _ in 0..100 {
+        let mut best_candi = (f32::MAX, (Vec::new(), (0, [0f32; 10])));
+
+        for (kind, sx, sy, sz, tx, ty, tz, rx, ry, rz) in iproduct!(
+            0..=2,
+            size_range.clone().step_by(10),
+            size_range.clone().step_by(10),
+            size_range.clone().step_by(10),
+            tran_range.clone().step_by(2),
+            tran_range.clone().step_by(2),
+            tran_range.clone().step_by(2),
+            rota_range.clone().step_by(90),
+            rota_range.clone().step_by(90),
+            rota_range.clone().step_by(90),
+        ) {
             let kind = {
                 if let Some(n) = next {
                     n
                 } else {
-                    rng.random_range(0..=2u8)
+                    kind
                 }
             };
 
-            let mut ps = [0f32; 10];
-            for p in ps.iter_mut().take(3) {
-                *p = rng.random_range(size_range.clone())
-            }
-            for p in ps.iter_mut().skip(3).take(3) {
-                *p = rng.random_range(tran_range.clone())
-            }
-            for p in ps.iter_mut().skip(6).take(3) {
-                *p = rng.random_range(rota_range.clone())
-            }
-            ps[9] = rng.random_range(0f32..=1f32);
+            let ps = [sx, sy, sz, tx, ty, tz, rx, ry, rz, 0].map(|p| p as f32);
+            println!("{ps:?}");
 
             let mut kinds = built_kinds.clone();
             kinds.push(kind);
             let mut params = built_params.clone();
             params.push(ps);
             let params = params.into_iter().flatten().collect::<Vec<_>>();
+
             let glam = params_to_glam(&kinds, &params);
 
             let score = chamfer_distance(&target_mesh, &glam);
-            candidates.push((glam.clone(), (kind, ps, score)));
-            visualize(glam, &rec);
+            visualize(glam.clone(), &rec);
+
+            if score <= best_candi.0 {
+                best_candi = (score, (glam, (kind, ps)));
+            }
         }
-        candidates.sort_by(|(_, (_, _, s1)), (_, (_, _, s2))| s1.total_cmp(s2));
-        let (glam, b) = candidates.last().unwrap();
-        println!("{b:?}");
-        best = *b;
+        let (score, (glam, (kind, ps))) = best_candi;
+        best = (kind, ps, score);
         visualize(glam.clone(), &rec);
     }
-
-    // let mut whole: Vec<(u8, [i8; 10])> = Vec::new();
-    // let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
-    // for _ in 0..100 {
-    //     let kind = rng.random_range(0..=2u8);
-    //     let mut params: [i8; 10] = [0; 10];
-    //     for p in params.iter_mut().take(9) {
-    //         *p = rng.random_range(1..=20);
-    //     }
-    //     params[9] = rng.random_range(0..=1);
-
-    //     let mut trial = whole.clone();
-    //     trial.push((kind, params));
-    //     let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
-    //     let paramss = paramss.into_iter().flatten().collect();
-    //     let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
-    //     candidates.push((kind, params, score));
-    // }
-    // candidates.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
-    // let (a, b, _) = candidates.first().unwrap();
-    // whole.push((*a, *b));
-    // loop {
-    //     let mut candidates: Vec<(u8, [i8; 10], f32)> = Vec::new();
-
-    //     for _ in 0..500 {
-    //         let kind = rng.random_range(0..=2u8);
-    //         let mut params: [i8; 10] = [0; 10];
-    //         for p in params.iter_mut().take(9) {
-    //             *p = rng.random_range(1..=20);
-    //         }
-    //         params[9] = rng.random_range(0..=1);
-
-    //         let mut trial = whole.clone();
-    //         trial.push((kind, params));
-    //         let (kinds, paramss): (Vec<u8>, Vec<[i8; 10]>) = trial.into_iter().unzip();
-    //         let paramss = paramss.into_iter().flatten().collect();
-    //         let score = score_k_p(&rec, &target_mesh, kinds, paramss)?;
-    //         candidates.push((kind, params, score));
-    //     }
-
-    //     let (k, p): (Vec<u8>, Vec<[i8; 10]>) = whole.clone().into_iter().unzip();
-    //     let p = p.into_iter().flatten().collect();
-    //     let curr_score = score_k_p(&rec, &target_mesh, k, p)?;
-    //     println!("{curr_score}");
-    //     let weights: Vec<f32> = candidates
-    //         .iter()
-    //         .map(|(_, _, s)| (curr_score - s).max(0.01))
-    //         .collect();
-
-    //     let dist = WeightedIndex::new(&weights).unwrap();
-    //     let idx = dist.sample(&mut rng);
-
-    //     let (kind, params, schore) = &candidates[idx];
-    //     whole.push((*kind, *params));
-
-    //     println!("whole: {whole:?}, diff: {schore}");
-    // }
-
-    // // Ok(())
 }
